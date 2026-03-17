@@ -270,22 +270,33 @@ export const generateProductImage = async (settings: GenerationSettings, variant
       return desc;
     }).join(", ");
   };
+
+  const formatCameraSettings = (camera: any) => {
+    const angleDesc = camera.angle === 0 ? "eye-level shot" :
+                      camera.angle > 0 ? `high angle shot (${camera.angle} degrees)` :
+                      `low angle shot (${Math.abs(camera.angle)} degrees)`;
+                      
+    const macroDesc = camera.isMacro ? "macro photography, extreme close-up details" : "standard product framing";
+    
+    return `Shot on ${camera.focalLength}mm lens, aperture ${camera.aperture}, ISO ${camera.iso}. ${angleDesc}. ${macroDesc}. Professional studio lighting, sharp focus, hyper-detailed, photorealistic.`;
+  };
   
   if (settings.visualStyle === "SCENE_STAGING") {
-    finalPrompt = `Staging professional: Add ${formatProps(settings.props)} into the real scene image following style "${settings.concept}". Keep original furniture. 8k, realistic.`;
+    finalPrompt = `Staging professional: Add ${formatProps(settings.props)} into the real scene image following style "${settings.concept}". Keep original furniture. Camera & Lighting: ${formatCameraSettings(settings.camera)}. 8k, realistic.`;
   } else if (settings.visualStyle === "TECH_EFFECTS") {
     if (settings.techEffectType === "REMOVE_SIGNATURE") {
       finalPrompt = `Remove watermark/text from this image. Keep high quality, clear, bright.`;
     } else {
-      finalPrompt = `Ocean night cinemetic. Product ${settings.productName}. Text "${settings.techTitle}". ${settings.selectedTechConcept}. Neon reflections, 8k.`;
+      finalPrompt = `Ocean night cinemetic. Product ${settings.productName}. Text "${settings.techTitle}". ${settings.selectedTechConcept}. Neon reflections, Camera: ${formatCameraSettings(settings.camera)}. 8k.`;
     }
   } else if (settings.visualStyle === "PACKAGING_MOCKUP") {
-    finalPrompt = `3D Packaging Mockup for ${settings.productName}. ${settings.packagingOutputStyle === 'WHITE_BG_ROTATED' ? 'White background studio' : 'Contextual lifestyle'}. 8k resolution.`;
+    finalPrompt = `3D Packaging Mockup for ${settings.productName}. ${settings.packagingOutputStyle === 'WHITE_BG_ROTATED' ? 'White background studio' : 'Contextual lifestyle'}. Camera: ${formatCameraSettings(settings.camera)}. 8k resolution.`;
   } else if (settings.visualStyle === "WHITE_BG_RETOUCH") {
     const qualityDescriptor = settings.imageSize === '4K' ? 'Ultra-High 4K Resolution, Hyper-detailed textures' : settings.imageSize === '2K' ? 'High Quality 2K Resolution, Sharp details' : 'Standard 1K Resolution, Clean finish';
     finalPrompt = `
       Professional e-commerce digital photography of '${settings.productName}'. 
       Visual Style: Digital high-end DSLR/Mirrorless camera capture aesthetic.
+      Camera & Lighting Setup: ${formatCameraSettings(settings.camera)}.
       Background: Recreate the image with the product isolated on a flawless, perfectly pure white background (#FFFFFF).
       Material characteristics: ${settings.productMaterial}.
       Retouching task: Professional studio retouching. Clean reflections, remove imperfections, enhance surface texture realism.
@@ -295,7 +306,21 @@ export const generateProductImage = async (settings: GenerationSettings, variant
       Output Quality: ${qualityDescriptor}, 8k fidelity.
     `;
   } else if (settings.visualStyle === "CONCEPT" || settings.visualStyle === "TECH_PS") {
-    const thinkingPrompt = `Write a detailed image generation prompt (English) for ${settings.productName}. Concept: ${settings.concept}. Props: ${formatProps(settings.props)}. Camera: ${settings.camera.focalLength}mm, ${settings.camera.aperture}. 8k high quality. Seed: ${variantSeed}.`;
+    const thinkingPrompt = `
+      Act as an expert AI image generation prompt engineer and professional product photographer.
+      Write a highly detailed, descriptive, and professional image generation prompt (in English) for a product photography shot.
+      
+      Product: ${settings.productName}
+      Creative Concept/Theme: ${settings.concept}
+      Props to include: ${formatProps(settings.props)}
+      Camera & Lighting Setup: ${formatCameraSettings(settings.camera)}
+      
+      Instructions for the prompt:
+      - Describe the product's placement, lighting, shadows, and reflections in detail.
+      - Describe the background and environment based on the concept.
+      - Ensure the prompt emphasizes photorealism, 8k resolution, and high-end commercial aesthetic.
+      - ONLY output the final prompt text, no explanations.
+    `;
     const thinkingResponse = await ai.models.generateContent({
       model: "gemini-3.1-pro-preview",
       contents: thinkingPrompt,
@@ -337,15 +362,22 @@ export const generateProductImage = async (settings: GenerationSettings, variant
       : "";
     
     const thinkingPrompt = `
-      Write a professional product photography prompt for ${settings.productName}.
-      Concept: ${settings.concept}.
+      Act as an expert AI image generation prompt engineer and professional product photographer.
+      Write a highly detailed, descriptive, and professional image generation prompt (in English) for a minimalist studio product shot.
+      
+      Product: ${settings.productName}
+      Creative Concept: ${settings.concept}
+      Props to include: ${formatProps(settings.props)}
       Background: Plain paper background in a soft pastel color that matches the product's primary color.
-      Props: ${formatProps(settings.props)}.
+      Empty Space Requirement: ${spaceInstruction}
       Composition: The product and props must be neatly arranged and fit entirely within the frame.
-      Empty Space: ${spaceInstruction}
-      Camera: ${settings.camera.focalLength}mm lens, aperture ${settings.camera.aperture}, ISO ${settings.camera.iso}.
-      Style: High-end studio photography, clean, minimalist, professional lighting.
-      8k resolution, hyper-realistic.
+      Camera & Lighting Setup: ${formatCameraSettings(settings.camera)}
+      
+      Instructions for the prompt:
+      - Emphasize clean, minimalist, high-end studio photography.
+      - Describe the soft, professional studio lighting and subtle shadows.
+      - Ensure the prompt emphasizes photorealism, 8k resolution, and commercial aesthetic.
+      - ONLY output the final prompt text, no explanations.
     `;
     
     const thinkingResponse = await ai.models.generateContent({
@@ -381,6 +413,7 @@ export const generateProductImage = async (settings: GenerationSettings, variant
         6. Hệ thống thanh ray và ổ cắm phải hòa hợp hoàn hảo với môi trường của ảnh mẫu.
         
         Phong cách nhiếp ảnh kiến trúc chuyên nghiệp, 8k, siêu thực, ánh sáng và bóng đổ hoàn hảo.
+        Thông số máy ảnh: ${formatCameraSettings(settings.camera)}
       `;
     } else {
       finalPrompt = `
@@ -402,6 +435,7 @@ export const generateProductImage = async (settings: GenerationSettings, variant
         5. Hệ thống thanh ray và ổ cắm phải hòa hợp hoàn hảo với môi trường ${settings.location}.
         
         Phong cách nhiếp ảnh kiến trúc chuyên nghiệp, 8k, siêu thực, ánh sáng và bóng đổ hoàn hảo.
+        Thông số máy ảnh: ${formatCameraSettings(settings.camera)}
       `;
     }
   }

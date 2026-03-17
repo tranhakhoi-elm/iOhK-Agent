@@ -1399,10 +1399,13 @@ const App: React.FC = () => {
           <div><h1 className="text-xl font-bold tracking-tighter text-white">iOhK Agent</h1><p className="text-[8px] font-bold text-[#caf0f8] tracking-[0.3em] uppercase">Creative Studio 2026</p></div>
         </div>
       </header>
-      <main className="flex-1 flex flex-col lg:flex-row gap-6 p-6 max-w-[1600px] mx-auto w-full">
-        <aside className="w-full lg:w-[420px] glass-card ray-running rounded-[35px] overflow-hidden lg:h-[calc(100vh-120px)] lg:sticky lg:top-24"><div className="p-6 h-full overflow-y-auto custom-scrollbar">{renderSidebar()}</div></aside>
-        <section className="flex-1 flex flex-col gap-6">
-          <div className="flex-1 glass-card ray-running rounded-[40px] p-8 flex items-center justify-center relative min-h-[400px]">
+      <main className="flex-1 flex flex-col lg:flex-row gap-6 p-6 max-w-[1600px] mx-auto w-full relative">
+        <aside className="w-full lg:w-[420px] glass-card rounded-[35px] overflow-hidden lg:h-[calc(100vh-120px)] lg:sticky lg:top-24 z-10 bg-gradient-to-b from-white/[0.04] to-transparent"><div className="p-6 h-full overflow-y-auto custom-scrollbar">{renderSidebar()}</div></aside>
+        <section className="flex-1 flex flex-col gap-6 relative z-10">
+          {/* Subtle gradient background for depth */}
+          <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 via-purple-500/5 to-teal-500/10 rounded-[40px] pointer-events-none blur-3xl -z-10"></div>
+          
+          <div className="flex-1 glass-card rounded-[40px] p-8 flex items-center justify-center relative min-h-[400px] bg-gradient-to-br from-white/[0.03] to-transparent">
             {appState === AppState.GENERATING || appState === AppState.ANALYZING ? (
               <div className="text-center z-10 space-y-6 animate-pulse">
                 <div className="relative w-32 h-32 mx-auto"><div className="absolute inset-0 border-[4px] border-[#caf0f8] border-t-transparent rounded-full animate-spin" /></div>
@@ -1418,8 +1421,8 @@ const App: React.FC = () => {
               </div>
             ) : renderInstructions()}
           </div>
-          <div className="flex gap-4 h-32 items-stretch">
-            <div className="flex-1 glass-card ray-running rounded-[35px] p-4 flex gap-4 overflow-x-auto custom-scrollbar items-center">
+          <div className="flex gap-4 h-32 items-stretch relative z-10">
+            <div className="flex-1 glass-card rounded-[35px] p-4 flex gap-4 overflow-x-auto custom-scrollbar items-center bg-gradient-to-tr from-white/[0.02] to-transparent">
                 {gallery.length === 0 ? <div className="flex-1 flex items-center justify-center border-2 border-dashed border-white/5 rounded-[25px] opacity-20 h-full"><span className="text-[9px] font-bold uppercase tracking-[0.4em]">Bộ sưu tập</span></div> : gallery.map(img => <button key={img.id} onClick={() => setActiveImage(img)} className={`flex-shrink-0 w-24 h-24 rounded-2xl overflow-hidden border-2 transition-all ${activeImage?.id === img.id ? 'border-[#caf0f8]' : 'border-transparent opacity-40 hover:opacity-100'}`}><img src={img.url} className="w-full h-full object-cover" /></button>)}
             </div>
           </div>

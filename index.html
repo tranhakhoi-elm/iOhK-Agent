@@ -76,38 +76,10 @@
             animation: fadeIn 0.8s cubic-bezier(0.23, 1, 0.32, 1) forwards;
         }
 
-        /* RUNNING LIGHT RAY BORDER EFFECT */
-        @property --ray-angle {
-          syntax: '<angle>';
-          initial-value: 0deg;
-          inherits: false;
-        }
-
-        .ray-running {
-            position: relative;
-        }
-        
-        .ray-running::after {
-            content: "";
-            position: absolute;
-            inset: 0;
-            border-radius: inherit;
-            padding: 2px; /* Ray thickness */
-            background: conic-gradient(from var(--ray-angle), transparent 75%, var(--secondary), var(--primary), transparent 100%);
-            
-            -webkit-mask: 
-               linear-gradient(#fff 0 0) content-box, 
-               linear-gradient(#fff 0 0);
-            -webkit-mask-composite: xor;
-            mask-composite: exclude;
-            
-            z-index: 2;
-            pointer-events: none;
-            animation: spin-ray 4s linear infinite;
-        }
-
-        @keyframes spin-ray {
-            to { --ray-angle: 360deg; }
+        /* Ensure dropdown options are readable */
+        option {
+            background-color: var(--bg);
+            color: #fafafa;
         }
     </style>
 <script type="importmap">
