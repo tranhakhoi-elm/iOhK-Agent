@@ -255,6 +255,32 @@ export const analyzeStudioConcept = async (productName: string, dimensions: stri
 };
 
 // Bước cuối: Tạo Prompt và Tạo Ảnh
+export const upscaleImage = async (base64Image: string, targetSize: '2K' | '4K', aspectRatio: string = '1:1'): Promise<string> => {
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  try {
+    const response = await ai.models.generateContent({
+      model: 'gemini-3.1-flash-image-preview',
+      contents: {
+        parts: [
+          { inlineData: { data: base64Image.split(',')[1], mimeType: 'image/png' } },
+          { text: `Upscale and enhance this image to ${targetSize} high resolution, preserving all original details exactly. Photorealistic, sharp focus.` }
+        ]
+      },
+      config: {
+        imageConfig: {
+          imageSize: targetSize,
+          aspectRatio: aspectRatio as any
+        }
+      }
+    });
+    if (!response.candidates?.[0]?.content?.parts) throw new Error("AI không phản hồi.");
+    for (const part of response.candidates[0].content.parts) {
+      if (part.inlineData) return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+    }
+    throw new Error("Không có ảnh.");
+  } catch (error: any) { throw error; }
+};
+
 export const generateProductImage = async (settings: GenerationSettings, variantSeed: number): Promise<string> => {
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   let finalPrompt = "";
@@ -471,9 +497,9 @@ export const generateProductImage = async (settings: GenerationSettings, variant
     let modelName = 'gemini-2.5-flash-image';
     let imageConfig: any = { aspectRatio: settings.aspectRatio };
 
-    if (settings.imageSize === '2K' || settings.imageSize === '4K' || settings.aspectRatio === '1:4' || settings.aspectRatio === '4:1') {
+    if (settings.aspectRatio === '1:4' || settings.aspectRatio === '4:1') {
       modelName = 'gemini-3.1-flash-image-preview';
-      imageConfig.imageSize = settings.imageSize;
+      imageConfig.imageSize = '1K';
     }
 
     const response = await ai.models.generateContent({

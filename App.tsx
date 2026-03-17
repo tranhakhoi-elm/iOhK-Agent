@@ -14,7 +14,8 @@ import {
   suggestTechVisuals,
   suggestTechConcepts,
   analyzeStagingScene,
-  analyzeStudioConcept
+  analyzeStudioConcept,
+  upscaleImage
 } from './services/geminiService';
 
 const App: React.FC = () => {
@@ -24,6 +25,7 @@ const App: React.FC = () => {
   
   const [appState, setAppState] = useState<AppState>(AppState.READY);
   const [loadingMessage, setLoadingMessage] = useState<string>("");
+  const [isUpscaling, setIsUpscaling] = useState(false);
   
   const [currentStep, setCurrentStep] = useState<number>(1);
   const [conceptStep, setConceptStep] = useState<number>(1);
@@ -152,6 +154,35 @@ const App: React.FC = () => {
       }
     } catch (error) { alert("Lỗi khi tải ảnh."); }
     e.target.value = '';
+  };
+
+  const handleDownload = async (size: '1K' | '2K' | '4K') => {
+    if (!activeImage) return;
+    
+    if (size === '1K') {
+      const link = document.createElement('a');
+      link.href = activeImage.url;
+      link.download = `iohk-ai-${activeImage.id}-1K.png`;
+      link.click();
+      return;
+    }
+
+    try {
+      setIsUpscaling(true);
+      setLoadingMessage(`Đang nâng cấp ảnh lên ${size}...`);
+      const upscaledUrl = await upscaleImage(activeImage.url, size, settings.aspectRatio);
+      
+      const link = document.createElement('a');
+      link.href = upscaledUrl;
+      link.download = `iohk-ai-${activeImage.id}-${size}.png`;
+      link.click();
+    } catch (error) {
+      alert(`Lỗi khi nâng cấp ảnh lên ${size}. Vui lòng thử lại.`);
+      console.error(error);
+    } finally {
+      setIsUpscaling(false);
+      setLoadingMessage("");
+    }
   };
 
   // --- LOGIC CONCEPT WORKFLOW (STRICT 4 STEPS) ---
@@ -702,15 +733,7 @@ const App: React.FC = () => {
             </div>
         </div>
 
-        <div className="grid grid-cols-2 gap-4 pt-2">
-          <div className="space-y-2">
-            <label className="block text-[10px] font-bold text-slate-400 uppercase">Chất lượng ảnh</label>
-            <div className="grid grid-cols-3 gap-1">
-              {(['1K', '2K', '4K'] as ImageSize[]).map(size => (
-                <button key={size} onClick={() => setSettings({...settings, imageSize: size})} className={`py-2 rounded-lg border text-[9px] font-bold transition-all ${settings.imageSize === size ? 'bg-[#caf0f8] text-black border-[#caf0f8]' : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'}`}>{size}</button>
-              ))}
-            </div>
-          </div>
+        <div className="grid grid-cols-1 gap-4 pt-2">
           <div className="space-y-2">
             <label className="block text-[10px] font-bold text-slate-400 uppercase">Tỉ lệ khung hình</label>
             <select className="w-full bg-white/5 border border-white/10 rounded-lg p-2 text-[10px] text-white outline-none focus:border-[#caf0f8]" value={settings.aspectRatio} onChange={e => setSettings({...settings, aspectRatio: e.target.value as AspectRatio})}>
@@ -842,15 +865,7 @@ const App: React.FC = () => {
            <textarea placeholder="Ví dụ: Làm sạch bụi trên vỏ, tăng độ bóng cho phần inox, làm sáng logo..." className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-white resize-none h-24" value={settings.concept} onChange={e => setSettings({...settings, concept: e.target.value})} />
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
-          <div>
-             <label className="block text-[9px] font-bold text-slate-400 uppercase mb-2">Kích thước ảnh</label>
-             <select className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-white" value={settings.imageSize} onChange={e => setSettings({...settings, imageSize: e.target.value as ImageSize})}>
-                <option value="1K">1K Standard</option>
-                <option value="2K">2K Pro</option>
-                <option value="4K">4K Ultra HD</option>
-             </select>
-          </div>
+        <div className="grid grid-cols-1 gap-3">
           <div>
              <label className="block text-[9px] font-bold text-slate-400 uppercase mb-2">Tỷ lệ</label>
              <select className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-white" value={settings.aspectRatio} onChange={e => setSettings({...settings, aspectRatio: e.target.value as AspectRatio})}>
@@ -1351,17 +1366,11 @@ const App: React.FC = () => {
            </div>
          </div>
       </div>
-      <div className="grid grid-cols-2 gap-3">
+      <div className="grid grid-cols-1 gap-3">
         <div>
            <label className="block text-[9px] font-bold text-slate-400 uppercase mb-1">Tỷ lệ</label>
            <select className="w-full bg-white/5 border border-white/10 rounded-lg p-2 text-[10px] text-white outline-none" value={settings.aspectRatio} onChange={e => setSettings({...settings, aspectRatio: e.target.value as AspectRatio})}>
               <option value="1:1" className="bg-[#051610]">1:1 Vuông</option><option value="16:9" className="bg-[#051610]">16:9 HD</option><option value="9:16" className="bg-[#051610]">9:16</option><option value="4:3" className="bg-[#051610]">4:3</option><option value="3:4" className="bg-[#051610]">3:4</option><option value="1:4" className="bg-[#051610]">1:4</option><option value="4:1" className="bg-[#051610]">4:1</option>
-           </select>
-        </div>
-        <div>
-           <label className="block text-[9px] font-bold text-slate-400 uppercase mb-1">Chất lượng</label>
-           <select className="w-full bg-white/5 border border-white/10 rounded-lg p-2 text-[10px] text-white outline-none" value={settings.imageSize} onChange={e => setSettings({...settings, imageSize: e.target.value as ImageSize})}>
-              <option value="1K" className="bg-[#051610]">1K Standard</option><option value="2K" className="bg-[#051610]">2K Pro</option><option value="4K" className="bg-[#051610]">4K Ultra</option>
            </select>
         </div>
       </div>
@@ -1406,7 +1415,7 @@ const App: React.FC = () => {
           <div className="absolute inset-0 bg-gradient-to-br from-indigo-500/10 via-purple-500/5 to-teal-500/10 rounded-[40px] pointer-events-none blur-3xl -z-10"></div>
           
           <div className="flex-1 glass-card rounded-[40px] p-8 flex items-center justify-center relative min-h-[400px] bg-gradient-to-br from-white/[0.03] to-transparent">
-            {appState === AppState.GENERATING || appState === AppState.ANALYZING ? (
+            {appState === AppState.GENERATING || appState === AppState.ANALYZING || isUpscaling ? (
               <div className="text-center z-10 space-y-6 animate-pulse">
                 <div className="relative w-32 h-32 mx-auto"><div className="absolute inset-0 border-[4px] border-[#caf0f8] border-t-transparent rounded-full animate-spin" /></div>
                 <h3 className="text-xl font-bold text-white uppercase tracking-tighter">{loadingMessage}</h3>
@@ -1414,9 +1423,11 @@ const App: React.FC = () => {
             ) : activeImage ? (
               <div className="relative z-10 flex flex-col items-center gap-6 animate-fade-in w-full">
                 <div className="relative group max-w-full bg-black/20 rounded-[30px] p-2 flex justify-center"><img src={activeImage.url} alt="Masterpiece" className="max-h-[60vh] max-w-full block object-contain rounded-[28px] shadow-2xl" /></div>
-                <div className="flex gap-4">
+                <div className="flex gap-4 items-center flex-wrap justify-center">
                   <div className="px-6 py-3 bg-white/5 border border-white/10 rounded-2xl text-[9px] font-bold uppercase tracking-widest text-[#caf0f8]">Phiên bản 0{activeImage.variant}</div>
-                  <a href={activeImage.url} download={`iohk-ai-${activeImage.id}.png`} className="vibrant-button px-8 py-3 rounded-2xl text-[9px] font-bold uppercase tracking-widest text-white">Lưu ảnh ✨</a>
+                  <button onClick={() => handleDownload('1K')} className="vibrant-button px-6 py-3 rounded-2xl text-[9px] font-bold uppercase tracking-widest text-white">Tải 1K</button>
+                  <button onClick={() => handleDownload('2K')} className="vibrant-button px-6 py-3 rounded-2xl text-[9px] font-bold uppercase tracking-widest text-white">Tải 2K</button>
+                  <button onClick={() => handleDownload('4K')} className="vibrant-button px-6 py-3 rounded-2xl text-[9px] font-bold uppercase tracking-widest text-white">Tải 4K</button>
                 </div>
               </div>
             ) : renderInstructions()}
