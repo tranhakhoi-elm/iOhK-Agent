@@ -1487,13 +1487,13 @@ const renderTrackSocketWorkflow = () => (
       const modes = [
         { id: 'COLOR_CHANGE', icon: <Palette size={20} />, title: 'Làm màu sản phẩm', desc: 'Đổi màu giữ nguyên texture.', color: 'from-purple-500/20 to-purple-500/5', hover: 'hover:border-purple-400' },
         { id: 'WHITE_BG_RETOUCH', icon: <ImageIcon size={20} />, title: 'Làm ảnh nền trắng', desc: 'Làm sạch & tái tạo ánh sáng studio.', color: 'from-white/10 to-white/5', hover: 'hover:border-white/50' },
+        { id: 'CONCEPT', icon: <Layout size={20} />, title: 'Ảnh concept', desc: 'Sáng tạo concept, tìm props & không gian.', color: 'from-[#caf0f8]/20 to-[#caf0f8]/5', hover: 'hover:border-[#caf0f8]' },
         { id: 'STUDIO', icon: <Camera size={20} />, title: 'Làm ảnh trong studio', desc: 'Tạo ảnh sản phẩm nền pastel tối giản.', color: 'from-emerald-500/20 to-emerald-500/5', hover: 'hover:border-emerald-400' },
         { id: 'TECH_PS', icon: <Zap size={20} />, title: 'Làm ảnh USP', desc: 'Diễn tả tính năng kỹ thuật cao cấp.', color: 'from-yellow-500/20 to-yellow-500/5', hover: 'hover:border-yellow-400' },
         { id: 'PACKAGING_MOCKUP', icon: <Box size={20} />, title: 'Dựng mockup sản phẩm', desc: 'Dựng hộp 3D từ file phẳng.', color: 'from-orange-500/20 to-orange-500/5', hover: 'hover:border-orange-400' },
         { id: 'TRACK_SOCKET_STAGING', icon: <Plug size={20} />, title: 'Làm ảnh Thanh ray ổ cắm', desc: 'Ghép ổ cắm lên thanh ray và dựng phối cảnh.', color: 'from-blue-500/20 to-blue-500/5', hover: 'hover:border-blue-400' },
         { id: 'SCENE_STAGING', icon: <Home size={20} />, title: 'Xây dựng phối cảnh', desc: 'Dựng phối cảnh từ ảnh thực tế.', color: 'from-indigo-500/20 to-indigo-500/5', hover: 'hover:border-indigo-400' },
         { id: 'TECH_EFFECTS', icon: <Sparkles size={20} />, title: 'Xử lý ảnh có chữ ký', desc: 'Xóa watermark hoặc tạo hiệu ứng biển.', color: 'from-cyan-500/20 to-cyan-500/5', hover: 'hover:border-cyan-400' },
-        { id: 'CONCEPT', icon: <Layout size={20} />, title: 'Ảnh concept', desc: 'Sáng tạo concept, tìm props & không gian.', color: 'from-[#caf0f8]/20 to-[#caf0f8]/5', hover: 'hover:border-[#caf0f8]' },
       ];
 
       return (
