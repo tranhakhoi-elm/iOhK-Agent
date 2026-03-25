@@ -254,6 +254,47 @@ export const analyzeStudioConcept = async (productName: string, dimensions: stri
   }
 };
 
+export const editProductImage = async (base64Image: string, prompt: string, modelName: string = 'gemini-3.1-flash-image-preview', imageSize: string = '1K'): Promise<string> => {
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  
+  const mimeTypeMatch = base64Image.match(/^data:([A-Za-z-+\/]+);base64,(.+)$/);
+  if (!mimeTypeMatch || mimeTypeMatch.length !== 3) {
+    throw new Error("Invalid image format");
+  }
+  
+  const mimeType = mimeTypeMatch[1];
+  const data = mimeTypeMatch[2];
+
+  const parts: any[] = [
+    { inlineData: { data, mimeType } },
+    { text: prompt }
+  ];
+
+  try {
+    let finalModelName = modelName;
+    let imageConfig: any = {};
+
+    if (finalModelName === 'gemini-3.1-flash-image-preview' || imageSize === '2K' || imageSize === '4K') {
+      finalModelName = 'gemini-3.1-flash-image-preview';
+      imageConfig.imageSize = imageSize;
+    }
+
+    const response = await ai.models.generateContent({
+      model: finalModelName,
+      contents: { parts },
+      config: { imageConfig }
+    });
+    
+    if (!response.candidates?.[0]?.content?.parts) throw new Error("AI không phản hồi.");
+    for (const part of response.candidates[0].content.parts) {
+      if (part.inlineData) return `data:${part.inlineData.mimeType};base64,${part.inlineData.data}`;
+    }
+    throw new Error("Không có ảnh.");
+  } catch (error: any) {
+    throw error;
+  }
+};
+
 // Bước cuối: Tạo Prompt và Tạo Ảnh
 export const generateProductImage = async (settings: GenerationSettings, variantSeed: number): Promise<string> => {
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });

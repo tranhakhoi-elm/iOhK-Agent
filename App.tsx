@@ -16,7 +16,9 @@ import {
   Layout,
   Layers,
   Settings,
-  ArrowLeft
+  ArrowLeft,
+  Wand2,
+  Loader2
 } from 'lucide-react';
 import { AppState, GenerationSettings, GeneratedImage, AspectRatio, ImageSize, AISuggestions, VisualStyle, ColorChangeEntry, CameraSettings, PackagingFaces, PropConfig } from './types';
 import { 
@@ -26,6 +28,7 @@ import {
 } from './constants';
 import { 
   generateProductImage, 
+  editProductImage,
   getAiSuggestions, 
   analyzeConceptAndCamera, 
   analyzeTechConceptAndCamera,
@@ -99,6 +102,10 @@ const App: React.FC = () => {
   
   const [gallery, setGallery] = useState<GeneratedImage[]>([]);
   const [activeImage, setActiveImage] = useState<GeneratedImage | null>(null);
+  const [editPrompt, setEditPrompt] = useState('');
+  const [isEditingImage, setIsEditingImage] = useState(false);
+  const [editModel, setEditModel] = useState('gemini-3.1-flash-image-preview');
+  const [editQuality, setEditQuality] = useState<ImageSize>('1K');
 
   const productFilesRef = useRef<HTMLInputElement>(null);
   const refFileRef = useRef<HTMLInputElement>(null);
@@ -333,6 +340,31 @@ const App: React.FC = () => {
       console.error(error);
       alert("Lỗi tạo ảnh.");
     } finally { setAppState(AppState.READY); }
+  };
+
+  const handleEditImage = async () => {
+    if (!activeImage || !editPrompt.trim()) return;
+    setIsEditingImage(true);
+    try {
+      const newUrl = await editProductImage(activeImage.url, editPrompt, editModel, editQuality);
+      const time = Date.now();
+      const newImage: GeneratedImage = {
+        id: `${time}-edited`,
+        url: newUrl,
+        prompt: editPrompt,
+        timestamp: time,
+        settings: { ...activeImage.settings },
+        variant: activeImage.variant + 1
+      };
+      setGallery(prev => [newImage, ...prev]);
+      setActiveImage(newImage);
+      setEditPrompt("");
+    } catch (error: any) {
+      console.error(error);
+      alert("Lỗi chỉnh sửa ảnh.");
+    } finally {
+      setIsEditingImage(false);
+    }
   };
 
   const resetMode = () => {
@@ -1653,6 +1685,54 @@ const renderTrackSocketWorkflow = () => (
                 <div className="flex gap-4">
                   <div className="px-6 py-3 bg-white/5 border border-white/10 rounded-2xl text-[9px] font-bold uppercase tracking-widest text-[#caf0f8]">Phiên bản 0{activeImage.variant}</div>
                   <a href={activeImage.url} download={`iohk-ai-${activeImage.id}.png`} className="vibrant-button px-8 py-3 rounded-2xl text-[9px] font-bold uppercase tracking-widest text-white">Lưu ảnh ✨</a>
+                </div>
+                
+                {/* Edit AI Image Section */}
+                <div className="w-full max-w-2xl mt-2 bg-white/5 border border-white/10 rounded-[24px] p-4 flex flex-col gap-3">
+                  <label className="text-[10px] font-bold text-[#caf0f8] uppercase flex items-center gap-2">
+                    <Wand2 size={14} /> Chỉnh sửa ảnh bằng AI
+                  </label>
+                  <div className="flex flex-col gap-2">
+                    <div className="flex gap-2">
+                      <select 
+                        value={editModel}
+                        onChange={e => setEditModel(e.target.value)}
+                        disabled={isEditingImage}
+                        className="bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-[#caf0f8] transition-all"
+                      >
+                        <option value="gemini-3.1-flash-image-preview">Gemini 3.1 Flash Image</option>
+                        <option value="gemini-2.5-flash-image">Gemini 2.5 Flash Image</option>
+                      </select>
+                      <select 
+                        value={editQuality}
+                        onChange={e => setEditQuality(e.target.value as ImageSize)}
+                        disabled={isEditingImage}
+                        className="bg-black/40 border border-white/10 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-[#caf0f8] transition-all"
+                      >
+                        <option value="1K">1K (Nhanh)</option>
+                        <option value="2K">2K (Sắc nét)</option>
+                        <option value="4K">4K (Siêu nét)</option>
+                      </select>
+                    </div>
+                    <div className="flex gap-2">
+                      <input 
+                        type="text" 
+                        placeholder="Nhập yêu cầu chỉnh sửa (VD: Thêm ánh nắng, đổi màu nền...)" 
+                        className="flex-1 bg-black/40 border border-white/10 rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-[#caf0f8] transition-all"
+                        value={editPrompt}
+                        onChange={e => setEditPrompt(e.target.value)}
+                        onKeyDown={e => e.key === 'Enter' && handleEditImage()}
+                        disabled={isEditingImage}
+                      />
+                      <button 
+                        onClick={handleEditImage}
+                        disabled={isEditingImage || !editPrompt.trim()}
+                        className="px-6 bg-[#caf0f8] text-[#051610] font-bold rounded-xl text-xs disabled:opacity-50 flex items-center justify-center min-w-[120px] transition-all hover:brightness-110"
+                      >
+                        {isEditingImage ? <Loader2 size={16} className="animate-spin" /> : 'Thực hiện'}
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             ) : renderInstructions()}
