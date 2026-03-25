@@ -37,7 +37,7 @@ export const analyzeConceptAndCamera = async (productName: string, dimensions: s
       ${refImage ? "Tôi có gửi kèm một ảnh mẫu phong cách (Style Reference). Hãy dựa vào style của ảnh này để đề xuất." : ""}
       
       YÊU CẦU:
-      1. Đề xuất 5 Ý tưởng (Concept) chụp ảnh Lifestyle độc đáo, sang trọng.
+      1. Đề xuất 5 Ý tưởng (Concept) phối cảnh chụp ảnh Lifestyle. Các concept cần hướng tới sự rõ ràng (clear), gọn gàng, gần gũi với đời thường (như trong bếp, văn phòng, phòng khách...) và phải ĐÚNG với mục đích sử dụng thực tế của sản phẩm.
       2. Đề xuất bộ thông số Camera (Góc chụp, tiêu cự, khẩu độ, ISO) lý tưởng nhất.
 
       Trả về JSON.

@@ -185,7 +185,7 @@ const App: React.FC = () => {
   const handleConceptAnalysis = async () => {
     if (!settings.productName || settings.productImages.length === 0) return alert("Vui lòng nhập tên và tải ít nhất 1 ảnh sản phẩm.");
     setAppState(AppState.ANALYZING);
-    setLoadingMessage("AI đang phân tích dữ liệu và đề xuất concept...");
+    setLoadingMessage("AI đang phân tích dữ liệu và đề xuất phối cảnh...");
     try {
       const dimStr = `${settings.dimensions.length}x${settings.dimensions.width}x${settings.dimensions.height}mm`;
       const result = await analyzeConceptAndCamera(settings.productName, dimStr, settings.productImages, settings.referenceImage);
@@ -198,9 +198,9 @@ const App: React.FC = () => {
 
   const handlePropSuggestion = async () => {
     const finalConcept = settings.concept;
-    if (!finalConcept) return alert("Vui lòng chọn hoặc nhập 1 concept.");
+    if (!finalConcept) return alert("Vui lòng chọn hoặc nhập 1 phối cảnh.");
     setAppState(AppState.ANALYZING);
-    setLoadingMessage("AI đang tìm kiếm đạo cụ phù hợp cho concept này...");
+    setLoadingMessage("AI đang tìm kiếm đạo cụ phù hợp cho phối cảnh này...");
     try {
       const props = await suggestPropsForConcept(settings.productName, finalConcept);
       setSuggestions(prev => ({ ...prev, props: props }));
@@ -463,7 +463,7 @@ const App: React.FC = () => {
     );
   };
 
-  // 1. Ảnh concept Workflow (Lifestyle Concept)
+  // 1. Ảnh phối cảnh Workflow (Lifestyle Concept)
   const renderConceptWorkflow = () => (
     <div className="space-y-6">
       <StepIndicator current={conceptStep} total={4} labels={['Dữ liệu', 'Ý tưởng', 'Đạo cụ', 'Xuất bản']} />
@@ -484,7 +484,7 @@ const App: React.FC = () => {
                 <input type="text" placeholder="Tên sản phẩm..." className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-cyan-400 transition-colors" value={settings.productName} onChange={e => setSettings({...settings, productName: e.target.value})} />
                 <div className="grid grid-cols-3 gap-2 mt-2">
                    {['length', 'width', 'height'].map(f => (
-                     <input key={f} type="number" placeholder={f === 'length' ? 'Dài' : f === 'width' ? 'Rộng' : 'Cao'} className="bg-white/5 border border-white/10 rounded-lg p-2 text-xs text-white outline-none focus:border-cyan-400 transition-colors" value={(settings.dimensions as any)[f]} onChange={e => setSettings({...settings, dimensions: {...settings.dimensions, [f]: e.target.value}})} />
+                     <input key={f} type="number" placeholder={f === 'length' ? 'Dài (mm)' : f === 'width' ? 'Rộng (mm)' : 'Cao (mm)'} className="bg-white/5 border border-white/10 rounded-lg p-2 text-xs text-white outline-none focus:border-cyan-400 transition-colors" value={(settings.dimensions as any)[f]} onChange={e => setSettings({...settings, dimensions: {...settings.dimensions, [f]: e.target.value}})} />
                    ))}
                 </div>
               </div>
@@ -519,6 +519,7 @@ const App: React.FC = () => {
 
           {conceptStep === 2 && (
             <div className="space-y-4">
+               <label className="block text-[9px] font-bold text-slate-400 uppercase">Chọn Phối cảnh</label>
                <div className="space-y-2 max-h-64 overflow-y-auto custom-scrollbar pr-1">
                  {suggestions.concepts.map(c => (
                    <button key={c} onClick={() => setSettings({...settings, concept: c})} className={`w-full text-left p-4 rounded-xl border text-[10px] leading-relaxed transition-all ${settings.concept === c ? 'bg-cyan-500 text-black border-cyan-400' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}>{c}</button>
@@ -526,11 +527,13 @@ const App: React.FC = () => {
                </div>
                
                <div className="pt-4 border-t border-white/10 space-y-2">
-                  <label className="block text-[9px] font-bold text-slate-400 uppercase">Tự thêm concept mới</label>
-                  <div className="flex gap-2">
-                     <input type="text" placeholder="Nhập concept của bạn..." className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-cyan-400" value={customConcept} onChange={e => setCustomConcept(e.target.value)} onKeyDown={e => e.key === 'Enter' && addCustomConceptToList()} />
-                     <button onClick={addCustomConceptToList} className="px-5 bg-white/10 rounded-xl text-white font-bold hover:bg-white/20 transition-all">+</button>
-                  </div>
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase">Chỉnh sửa hoặc mô tả thêm về phối cảnh</label>
+                  <textarea 
+                    placeholder="Mô tả chi tiết hơn hoặc chỉnh sửa phối cảnh..." 
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-cyan-400 resize-none h-24 custom-scrollbar" 
+                    value={settings.concept} 
+                    onChange={e => setSettings({...settings, concept: e.target.value})} 
+                  />
                </div>
 
                <div className="flex gap-2 pt-2">
@@ -543,7 +546,7 @@ const App: React.FC = () => {
           {conceptStep === 3 && (
             <div className="space-y-5">
               <div className="bg-cyan-500/10 p-3 rounded-xl border border-cyan-500/20">
-                 <div className="text-[8px] font-bold text-cyan-400 uppercase mb-1">Concept đã chọn:</div>
+                 <div className="text-[8px] font-bold text-cyan-400 uppercase mb-1">Phối cảnh đã chọn:</div>
                  <div className="text-[10px] text-white italic">"{settings.concept}"</div>
               </div>
 
@@ -694,7 +697,7 @@ const App: React.FC = () => {
               <label className="block text-[9px] font-bold text-slate-400 uppercase">Kích thước sản phẩm</label>
               <div className="grid grid-cols-3 gap-3">
                  {['length', 'width', 'height'].map(f => (
-                   <input key={f} type="number" placeholder={f === 'length' ? 'Dài' : f === 'width' ? 'Rộng' : 'Cao'} className="bg-white/5 border border-white/10 rounded-lg p-3 text-xs text-white outline-none focus:border-cyan-400 transition-colors" value={(settings.dimensions as any)[f]} onChange={e => setSettings({...settings, dimensions: {...settings.dimensions, [f]: e.target.value}})} />
+                   <input key={f} type="number" placeholder={f === 'length' ? 'Dài (mm)' : f === 'width' ? 'Rộng (mm)' : 'Cao (mm)'} className="bg-white/5 border border-white/10 rounded-lg p-3 text-xs text-white outline-none focus:border-cyan-400 transition-colors" value={(settings.dimensions as any)[f]} onChange={e => setSettings({...settings, dimensions: {...settings.dimensions, [f]: e.target.value}})} />
                  ))}
               </div>
               <div className="flex gap-2">
@@ -898,7 +901,7 @@ const App: React.FC = () => {
               <input type="text" placeholder="Tên sản phẩm..." className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-cyan-400 transition-colors" value={settings.productName} onChange={e => setSettings({...settings, productName: e.target.value})} />
               <div className="grid grid-cols-3 gap-2">
                  {['length', 'width', 'height'].map(f => (
-                   <input key={f} type="number" placeholder={f === 'length' ? 'Dài' : f === 'width' ? 'Rộng' : 'Cao'} className="bg-white/5 border border-white/10 rounded-lg p-2 text-xs text-white outline-none focus:border-cyan-400 transition-colors" value={(settings.dimensions as any)[f]} onChange={e => setSettings({...settings, dimensions: {...settings.dimensions, [f]: e.target.value}})} />
+                   <input key={f} type="number" placeholder={f === 'length' ? 'Dài (mm)' : f === 'width' ? 'Rộng (mm)' : 'Cao (mm)'} className="bg-white/5 border border-white/10 rounded-lg p-2 text-xs text-white outline-none focus:border-cyan-400 transition-colors" value={(settings.dimensions as any)[f]} onChange={e => setSettings({...settings, dimensions: {...settings.dimensions, [f]: e.target.value}})} />
                  ))}
               </div>
               <select className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-cyan-400" value={settings.packagingMaterial} onChange={e => setSettings({...settings, packagingMaterial: e.target.value as any})}>
@@ -1123,7 +1126,7 @@ const App: React.FC = () => {
                 <input type="text" placeholder="Tên sản phẩm..." className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white outline-none focus:border-emerald-400" value={settings.productName} onChange={e => setSettings({...settings, productName: e.target.value})} />
                 <div className="grid grid-cols-3 gap-2 mt-2">
                    {['length', 'width', 'height'].map(f => (
-                     <input key={f} type="number" placeholder={f === 'length' ? 'Dài' : f === 'width' ? 'Rộng' : 'Cao'} className="bg-white/5 border border-white/10 rounded-lg p-2 text-xs text-white outline-none focus:border-emerald-400" value={(settings.dimensions as any)[f]} onChange={e => setSettings({...settings, dimensions: {...settings.dimensions, [f]: e.target.value}})} />
+                     <input key={f} type="number" placeholder={f === 'length' ? 'Dài (mm)' : f === 'width' ? 'Rộng (mm)' : 'Cao (mm)'} className="bg-white/5 border border-white/10 rounded-lg p-2 text-xs text-white outline-none focus:border-emerald-400" value={(settings.dimensions as any)[f]} onChange={e => setSettings({...settings, dimensions: {...settings.dimensions, [f]: e.target.value}})} />
                    ))}
                 </div>
               </div>
@@ -1452,11 +1455,11 @@ const renderTrackSocketWorkflow = () => (
         ];
         break;
       case 'CONCEPT':
-        title = "Hướng dẫn: Ảnh concept";
+        title = "Hướng dẫn: Ảnh phối cảnh";
         steps = [
           "Nhập tên sản phẩm và tải lên ảnh sản phẩm.",
-          "AI sẽ phân tích và đề xuất các concept sáng tạo.",
-          "Chọn đạo cụ và góc máy phù hợp với concept.",
+          "AI sẽ phân tích và đề xuất các phối cảnh sáng tạo.",
+          "Chọn đạo cụ và góc máy phù hợp với phối cảnh.",
           "Nhấn 'Tạo ảnh' để render."
         ];
         break;
@@ -1487,7 +1490,7 @@ const renderTrackSocketWorkflow = () => (
       const modes = [
         { id: 'COLOR_CHANGE', icon: <Palette size={20} />, title: 'Làm màu sản phẩm', desc: 'Đổi màu giữ nguyên texture.', color: 'from-purple-500/20 to-purple-500/5', hover: 'hover:border-purple-400' },
         { id: 'WHITE_BG_RETOUCH', icon: <ImageIcon size={20} />, title: 'Làm ảnh nền trắng', desc: 'Làm sạch & tái tạo ánh sáng studio.', color: 'from-white/10 to-white/5', hover: 'hover:border-white/50' },
-        { id: 'CONCEPT', icon: <Layout size={20} />, title: 'Ảnh concept', desc: 'Sáng tạo concept, tìm props & không gian.', color: 'from-[#caf0f8]/20 to-[#caf0f8]/5', hover: 'hover:border-[#caf0f8]' },
+        { id: 'CONCEPT', icon: <Layout size={20} />, title: 'Ảnh phối cảnh', desc: 'Sáng tạo phối cảnh, tìm props & không gian.', color: 'from-[#caf0f8]/20 to-[#caf0f8]/5', hover: 'hover:border-[#caf0f8]' },
         { id: 'STUDIO', icon: <Camera size={20} />, title: 'Làm ảnh trong studio', desc: 'Tạo ảnh sản phẩm nền pastel tối giản.', color: 'from-emerald-500/20 to-emerald-500/5', hover: 'hover:border-emerald-400' },
         { id: 'TECH_PS', icon: <Zap size={20} />, title: 'Làm ảnh USP', desc: 'Diễn tả tính năng kỹ thuật cao cấp.', color: 'from-yellow-500/20 to-yellow-500/5', hover: 'hover:border-yellow-400' },
         { id: 'PACKAGING_MOCKUP', icon: <Box size={20} />, title: 'Dựng mockup sản phẩm', desc: 'Dựng hộp 3D từ file phẳng.', color: 'from-orange-500/20 to-orange-500/5', hover: 'hover:border-orange-400' },
