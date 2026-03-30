@@ -32,7 +32,6 @@ import {
   getAiSuggestions, 
   analyzeConceptAndCamera, 
   analyzeTechConceptAndCamera,
-  suggestPropsForConcept,
   suggestTechVisuals,
   suggestTechConcepts,
   analyzeStagingScene,
@@ -115,12 +114,12 @@ const App: React.FC = () => {
   const socketFileRef = useRef<HTMLInputElement>(null);
   const pendingPackagingFace = useRef<keyof PackagingFaces | "flat">("flat");
 
-  const handleUnlock = () => {
-    if (passwordInput === "180692") {
+  const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value;
+    setPasswordInput(val);
+    setPasswordError("");
+    if (val === "1111") {
       setIsLocked(false);
-      setPasswordError("");
-    } else {
-      setPasswordError("Mật khẩu không chính xác");
     }
   };
 
@@ -189,24 +188,10 @@ const App: React.FC = () => {
     try {
       const dimStr = `${settings.dimensions.length}x${settings.dimensions.width}x${settings.dimensions.height}mm`;
       const result = await analyzeConceptAndCamera(settings.productName, dimStr, settings.productImages, settings.referenceImage);
-      setSuggestions(prev => ({ ...prev, concepts: result.concepts }));
-      setSettings(prev => ({ ...prev, camera: result.suggestedCamera, concept: result.concepts[0] }));
+      setSuggestions(prev => ({ ...prev, concepts: result.concepts, props: result.props || [] }));
+      setSettings(prev => ({ ...prev, camera: result.suggestedCamera, concept: result.concepts[0], props: [] }));
       setConceptStep(2);
     } catch (e: any) { console.error(e); } 
-    finally { setAppState(AppState.READY); }
-  };
-
-  const handlePropSuggestion = async () => {
-    const finalConcept = settings.concept;
-    if (!finalConcept) return alert("Vui lòng chọn hoặc nhập 1 phối cảnh.");
-    setAppState(AppState.ANALYZING);
-    setLoadingMessage("AI đang tìm kiếm đạo cụ phù hợp cho phối cảnh này...");
-    try {
-      const props = await suggestPropsForConcept(settings.productName, finalConcept);
-      setSuggestions(prev => ({ ...prev, props: props }));
-      setSettings(prev => ({ ...prev, props: [] }));
-      setConceptStep(3);
-    } catch (e) { console.error(e); } 
     finally { setAppState(AppState.READY); }
   };
 
@@ -252,8 +237,8 @@ const App: React.FC = () => {
     try {
       const dimStr = `${settings.dimensions.length}x${settings.dimensions.width}x${settings.dimensions.height}mm`;
       const result = await analyzeTechConceptAndCamera(settings.productName, settings.techDescription, dimStr, settings.productImages);
-      setSuggestions(prev => ({ ...prev, concepts: result.concepts }));
-      setSettings(prev => ({ ...prev, camera: result.suggestedCamera, concept: result.concepts[0] }));
+      setSuggestions(prev => ({ ...prev, concepts: result.concepts, props: result.props || [] }));
+      setSettings(prev => ({ ...prev, camera: result.suggestedCamera, concept: result.concepts[0], props: [] }));
       setTechStep(3);
     } catch (e: any) { console.error(e); } 
     finally { setAppState(AppState.READY); }
@@ -306,24 +291,10 @@ const App: React.FC = () => {
     try {
       const dimStr = `${settings.dimensions.length}x${settings.dimensions.width}x${settings.dimensions.height}mm`;
       const result = await analyzeStudioConcept(settings.productName, dimStr, settings.productImages);
-      setSuggestions(prev => ({ ...prev, concepts: result.concepts }));
-      setSettings(prev => ({ ...prev, camera: result.suggestedCamera, concept: result.concepts[0] }));
+      setSuggestions(prev => ({ ...prev, concepts: result.concepts, props: result.props || [] }));
+      setSettings(prev => ({ ...prev, camera: result.suggestedCamera, concept: result.concepts[0], props: [] }));
       setStudioStep(2);
     } catch (e: any) { console.error(e); } 
-    finally { setAppState(AppState.READY); }
-  };
-
-  const handleStudioPropSuggestion = async () => {
-    const finalConcept = settings.concept;
-    if (!finalConcept) return alert("Vui lòng chọn hoặc nhập 1 concept.");
-    setAppState(AppState.ANALYZING);
-    setLoadingMessage("AI đang tìm kiếm đạo cụ Studio phù hợp...");
-    try {
-      const props = await suggestPropsForConcept(settings.productName, finalConcept);
-      setSuggestions(prev => ({ ...prev, props: props }));
-      setSettings(prev => ({ ...prev, props: [] }));
-      setStudioStep(3);
-    } catch (e) { console.error(e); } 
     finally { setAppState(AppState.READY); }
   };
 
@@ -466,7 +437,7 @@ const App: React.FC = () => {
   // 1. Ảnh phối cảnh Workflow (Lifestyle Concept)
   const renderConceptWorkflow = () => (
     <div className="space-y-6">
-      <StepIndicator current={conceptStep} total={4} labels={['Dữ liệu', 'Ý tưởng', 'Đạo cụ', 'Xuất bản']} />
+      <StepIndicator current={conceptStep} total={3} labels={['Dữ liệu', 'Ý tưởng & Đạo cụ', 'Xuất bản']} />
       
       <AnimatePresence mode="wait">
         <motion.div
@@ -518,65 +489,53 @@ const App: React.FC = () => {
           )}
 
           {conceptStep === 2 && (
-            <div className="space-y-4">
-               <label className="block text-[9px] font-bold text-slate-400 uppercase">Chọn Phối cảnh</label>
-               <div className="space-y-2 max-h-64 overflow-y-auto custom-scrollbar pr-1">
-                 {suggestions.concepts.map(c => (
-                   <button key={c} onClick={() => setSettings({...settings, concept: c})} className={`w-full text-left p-4 rounded-xl border text-[10px] leading-relaxed transition-all ${settings.concept === c ? 'bg-cyan-500 text-black border-cyan-400' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}>{c}</button>
-                 ))}
+            <div className="space-y-5">
+               <div className="space-y-2">
+                 <label className="block text-[9px] font-bold text-slate-400 uppercase">Chọn Phối cảnh</label>
+                 <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar pr-1">
+                   {suggestions.concepts.map(c => (
+                     <button key={c} onClick={() => setSettings({...settings, concept: c})} className={`w-full text-left p-4 rounded-xl border text-[10px] leading-relaxed transition-all ${settings.concept === c ? 'bg-cyan-500 text-black border-cyan-400' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}>{c}</button>
+                   ))}
+                 </div>
                </div>
                
-               <div className="pt-4 border-t border-white/10 space-y-2">
+               <div className="pt-2 border-t border-white/10 space-y-2">
                   <label className="block text-[9px] font-bold text-slate-400 uppercase">Chỉnh sửa hoặc mô tả thêm về phối cảnh</label>
                   <textarea 
                     placeholder="Mô tả chi tiết hơn hoặc chỉnh sửa phối cảnh..." 
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-cyan-400 resize-none h-24 custom-scrollbar" 
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-cyan-400 resize-none h-20 custom-scrollbar" 
                     value={settings.concept} 
                     onChange={e => setSettings({...settings, concept: e.target.value})} 
                   />
                </div>
 
-               <div className="flex gap-2 pt-2">
-                  <button onClick={() => setConceptStep(1)} className="flex-1 py-4 border border-white/10 text-white rounded-xl uppercase text-[10px] font-bold hover:bg-white/5">Quay lại</button>
-                  <button onClick={handlePropSuggestion} className="flex-[2] py-4 bg-cyan-500 text-black font-bold rounded-xl uppercase text-xs">Tiếp tục</button>
-               </div>
-            </div>
-          )}
-
-          {conceptStep === 3 && (
-            <div className="space-y-5">
-              <div className="bg-cyan-500/10 p-3 rounded-xl border border-cyan-500/20">
-                 <div className="text-[8px] font-bold text-cyan-400 uppercase mb-1">Phối cảnh đã chọn:</div>
-                 <div className="text-[10px] text-white italic">"{settings.concept}"</div>
-              </div>
-
-              <div>
+               <div className="pt-2 border-t border-white/10 space-y-2">
                  <label className="block text-[9px] font-bold text-slate-400 uppercase mb-2">Gợi ý đạo cụ</label>
-                 <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto custom-scrollbar">
+                 <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto custom-scrollbar">
                     {suggestions.props.map(p => (
                       <button key={p} onClick={() => toggleProp(p)} className={`px-3 py-2 rounded-lg border text-[9px] font-bold transition-all ${settings.props.some(i => i.name === p) ? 'bg-cyan-500 text-black border-cyan-400' : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'}`}>{p}</button>
                     ))}
                  </div>
-              </div>
+               </div>
 
-              <div className="space-y-2 pt-2 border-t border-white/10">
-                 <label className="block text-[9px] font-bold text-slate-400 uppercase">Thêm đạo cụ khác</label>
-                 <div className="flex gap-2">
-                    <input type="text" placeholder="Nhập tên đạo cụ..." className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 text-xs text-white outline-none focus:border-cyan-400" value={customProp} onChange={e => setCustomProp(e.target.value)} onKeyDown={e => e.key === 'Enter' && addCustomPropToList()} />
-                    <button onClick={addCustomPropToList} className="px-5 bg-white/10 rounded-xl text-white font-bold hover:bg-white/20 transition-all">+</button>
-                 </div>
-              </div>
+               <div className="space-y-2 pt-2 border-t border-white/10">
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase">Thêm đạo cụ khác</label>
+                  <div className="flex gap-2">
+                     <input type="text" placeholder="Nhập tên đạo cụ..." className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 text-xs text-white outline-none focus:border-cyan-400" value={customProp} onChange={e => setCustomProp(e.target.value)} onKeyDown={e => e.key === 'Enter' && addCustomPropToList()} />
+                     <button onClick={addCustomPropToList} className="px-5 bg-white/10 rounded-xl text-white font-bold hover:bg-white/20 transition-all">+</button>
+                  </div>
+               </div>
 
-              {renderSelectedProps()}
+               {renderSelectedProps()}
 
-              <div className="flex gap-2">
-                  <button onClick={() => setConceptStep(2)} className="flex-1 py-4 border border-white/10 text-white rounded-xl uppercase text-[10px] font-bold hover:bg-white/5">Quay lại</button>
-                  <button onClick={() => setConceptStep(4)} className="flex-[2] py-4 bg-cyan-500 text-black font-bold rounded-xl uppercase text-xs">Tiếp tục</button>
-              </div>
+               <div className="flex gap-2 pt-2">
+                  <button onClick={() => setConceptStep(1)} className="flex-1 py-4 border border-white/10 text-white rounded-xl uppercase text-[10px] font-bold hover:bg-white/5">Quay lại</button>
+                  <button onClick={() => setConceptStep(3)} className="flex-[2] py-4 bg-cyan-500 text-black font-bold rounded-xl uppercase text-xs">Tiếp tục</button>
+               </div>
             </div>
           )}
 
-          {conceptStep === 4 && renderCameraSettings(() => setConceptStep(3))}
+          {conceptStep === 3 && renderCameraSettings(() => setConceptStep(2))}
         </motion.div>
       </AnimatePresence>
     </div>
@@ -1085,18 +1044,13 @@ const App: React.FC = () => {
                       <option value="4:3" className="bg-[#051610]">4:3 Catalog</option>
                       <option value="3:4" className="bg-[#051610]">3:4 Portrait</option>
                       <option value="16:9" className="bg-[#051610]">16:9 HD</option>
-                      <option value="9:16" className="bg-[#051610]">9:16</option>
-                      <option value="1:4" className="bg-[#051610]">1:4 Siêu dài</option>
-                      <option value="4:1" className="bg-[#051610]">4:1 Siêu rộng</option>
                    </select>
                 </div>
               </div>
 
-              {renderModelSelection()}
-
               <div className="flex gap-2">
-                <button onClick={() => setWhiteBgStep(1)} className="flex-1 py-4 border border-white/10 text-white rounded-xl text-[10px] font-bold hover:bg-white/5">Quay lại</button>
-                <button onClick={startGeneration} className="w-full py-4 bg-cyan-500 text-black font-bold rounded-xl uppercase text-xs shadow-lg hover:brightness-110 transition-all">Tạo ảnh</button>
+                 <button onClick={() => setWhiteBgStep(1)} className="flex-1 py-4 border border-white/10 text-white rounded-xl uppercase text-[10px] font-bold hover:bg-white/5">Quay lại</button>
+                 <button onClick={() => startGeneration()} className="flex-[2] py-4 bg-cyan-500 text-[#051610] font-bold rounded-xl uppercase text-xs hover:brightness-110 transition-all shadow-[0_0_20px_rgba(6,182,212,0.3)]">Tạo Ảnh Nền Trắng</button>
               </div>
             </div>
           )}
@@ -1108,7 +1062,7 @@ const App: React.FC = () => {
   // 8. Tạo hình ảnh chụp trong studio Workflow
   const renderStudioWorkflow = () => (
     <div className="space-y-6">
-      <StepIndicator current={studioStep} total={4} labels={['Dữ liệu', 'Concept', 'Bố cục', 'Xuất bản']} />
+      <StepIndicator current={studioStep} total={3} labels={['Dữ liệu', 'Concept & Bố cục', 'Xuất bản']} />
       
       <AnimatePresence mode="wait">
         <motion.div
@@ -1152,39 +1106,27 @@ const App: React.FC = () => {
           )}
 
           {studioStep === 2 && (
-            <div className="space-y-4">
-               <label className="block text-[9px] font-bold text-slate-400 uppercase">Chọn Concept Studio</label>
-               <div className="space-y-2 max-h-64 overflow-y-auto custom-scrollbar pr-1">
-                 {suggestions.concepts.map(c => (
-                   <button key={c} onClick={() => setSettings({...settings, concept: c})} className={`w-full text-left p-4 rounded-xl border text-[10px] leading-relaxed transition-all ${settings.concept === c ? 'bg-emerald-400 text-[#051610] border-emerald-400' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}>{c}</button>
-                 ))}
+            <div className="space-y-5">
+               <div className="space-y-2">
+                 <label className="block text-[9px] font-bold text-slate-400 uppercase">Chọn Concept Studio</label>
+                 <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar pr-1">
+                   {suggestions.concepts.map(c => (
+                     <button key={c} onClick={() => setSettings({...settings, concept: c})} className={`w-full text-left p-4 rounded-xl border text-[10px] leading-relaxed transition-all ${settings.concept === c ? 'bg-emerald-400 text-[#051610] border-emerald-400' : 'bg-white/5 border-white/10 text-white hover:bg-white/10'}`}>{c}</button>
+                   ))}
+                 </div>
                </div>
                
-               <div className="pt-4 border-t border-white/10 space-y-2">
+               <div className="pt-2 border-t border-white/10 space-y-2">
                   <label className="block text-[9px] font-bold text-slate-400 uppercase">Chỉnh sửa hoặc mô tả thêm về concept</label>
                   <textarea 
                     placeholder="Mô tả chi tiết hơn hoặc chỉnh sửa concept..." 
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-emerald-400 resize-none h-24 custom-scrollbar" 
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-xs text-white outline-none focus:border-emerald-400 resize-none h-20 custom-scrollbar" 
                     value={settings.concept} 
                     onChange={e => setSettings({...settings, concept: e.target.value})} 
                   />
                </div>
 
-               <div className="flex gap-2 pt-2">
-                  <button onClick={() => setStudioStep(1)} className="flex-1 py-4 border border-white/10 text-white rounded-xl uppercase text-[10px] font-bold hover:bg-white/5">Quay lại</button>
-                  <button onClick={handleStudioPropSuggestion} className="flex-[2] bg-emerald-500 text-[#051610] font-bold rounded-xl uppercase text-xs">Tiếp tục</button>
-               </div>
-            </div>
-          )}
-
-          {studioStep === 3 && (
-            <div className="space-y-5">
-              <div className="bg-emerald-400/10 p-3 rounded-xl border border-emerald-400/20">
-                 <div className="text-[8px] font-bold text-emerald-400 uppercase mb-1">Concept Studio đã chọn:</div>
-                 <div className="text-[10px] text-white italic">"{settings.concept}"</div>
-              </div>
-
-              <div>
+               <div className="pt-2 border-t border-white/10 space-y-2">
                  <label className="block text-[9px] font-bold text-slate-400 uppercase mb-2">Vị trí để trống chèn Text (Chọn nhiều)</label>
                  <div className="grid grid-cols-2 gap-2">
                     {[
@@ -1214,41 +1156,41 @@ const App: React.FC = () => {
                       );
                     })}
                  </div>
-              </div>
+               </div>
 
-              <div>
+               <div className="pt-2 border-t border-white/10 space-y-2">
                  <label className="block text-[9px] font-bold text-slate-400 uppercase mb-2">Gợi ý đạo cụ Studio</label>
-                 <div className="flex flex-wrap gap-2 max-h-48 overflow-y-auto custom-scrollbar">
+                 <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto custom-scrollbar">
                     {suggestions.props.map(p => (
                       <button key={p} onClick={() => toggleProp(p)} className={`px-3 py-2 rounded-lg border text-[9px] font-bold transition-all ${settings.props.some(i => i.name === p) ? 'bg-emerald-400 text-[#051610] border-emerald-400' : 'bg-white/5 border-white/10 text-slate-400 hover:text-white'}`}>{p}</button>
                     ))}
                  </div>
-              </div>
+               </div>
 
-              <div className="space-y-2 pt-2 border-t border-white/10">
-                 <label className="block text-[9px] font-bold text-slate-400 uppercase">Thêm đạo cụ khác</label>
-                 <div className="flex gap-2">
-                    <input type="text" placeholder="Nhập tên đạo cụ..." className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 text-xs text-white outline-none focus:border-emerald-400" value={customProp} onChange={e => setCustomProp(e.target.value)} onKeyDown={e => e.key === 'Enter' && addCustomPropToList()} />
-                <button onClick={addCustomPropToList} className="px-5 bg-white/10 rounded-xl text-white font-bold hover:bg-white/20 transition-all">+</button>
-             </div>
-          </div>
+               <div className="space-y-2 pt-2 border-t border-white/10">
+                  <label className="block text-[9px] font-bold text-slate-400 uppercase">Thêm đạo cụ khác</label>
+                  <div className="flex gap-2">
+                     <input type="text" placeholder="Nhập tên đạo cụ..." className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 text-xs text-white outline-none focus:border-emerald-400" value={customProp} onChange={e => setCustomProp(e.target.value)} onKeyDown={e => e.key === 'Enter' && addCustomPropToList()} />
+                     <button onClick={addCustomPropToList} className="px-5 bg-white/10 rounded-xl text-white font-bold hover:bg-white/20 transition-all">+</button>
+                  </div>
+               </div>
 
-          {renderSelectedProps()}
+               {renderSelectedProps()}
 
-          <div className="flex gap-2">
-              <button onClick={() => setStudioStep(2)} className="flex-1 py-4 border border-white/10 text-white rounded-xl uppercase text-[10px] font-bold">Quay lại</button>
-              <button onClick={() => setStudioStep(4)} className="flex-[2] bg-emerald-500 text-[#051610] font-bold rounded-xl uppercase text-xs">Tiếp tục</button>
-          </div>
-        </div>
-      )}
-    </motion.div>
-  </AnimatePresence>
+               <div className="flex gap-2 pt-2">
+                  <button onClick={() => setStudioStep(1)} className="flex-1 py-4 border border-white/10 text-white rounded-xl uppercase text-[10px] font-bold hover:bg-white/5">Quay lại</button>
+                  <button onClick={() => setStudioStep(3)} className="flex-[2] py-4 bg-emerald-500 text-[#051610] font-bold rounded-xl uppercase text-xs">Tiếp tục</button>
+               </div>
+            </div>
+          )}
 
-  {studioStep === 4 && renderCameraSettings(() => setStudioStep(3))}
-</div>
-);
+          {studioStep === 3 && renderCameraSettings(() => setStudioStep(2))}
+        </motion.div>
+      </AnimatePresence>
+    </div>
+  );
 
-// 9. Phối cảnh Thanh ray & Ổ cắm Workflow
+  // 9. Phối cảnh Thanh ray & Ổ cắm Workflow
 const renderTrackSocketWorkflow = () => (
 <div className="space-y-6">
   <StepIndicator current={trackSocketStep} total={3} labels={['Dữ liệu', 'Bối cảnh', 'Xuất bản']} />
@@ -1653,10 +1595,9 @@ const renderTrackSocketWorkflow = () => (
             <h2 className="text-lg font-bold text-[#caf0f8]">Bảo mật hệ thống</h2>
           </div>
           <div className="space-y-4">
-            <input type="password" placeholder="Mật khẩu..." className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-center text-white tracking-[0.5em] outline-none" value={passwordInput} onChange={(e) => { setPasswordInput(e.target.value); setPasswordError(""); }} onKeyDown={(e) => e.key === 'Enter' && handleUnlock()} />
+            <input type="password" placeholder="Mật khẩu..." className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-center text-white tracking-[0.5em] outline-none" value={passwordInput} onChange={handlePasswordChange} />
             {passwordError && <p className="text-red-400 text-xs font-bold uppercase">{passwordError}</p>}
           </div>
-          <button onClick={handleUnlock} className="w-full vibrant-button text-white font-bold py-4 rounded-[25px] uppercase text-[12px] shadow-xl">Mở khóa</button>
         </div>
       </div>
     );

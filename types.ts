@@ -105,6 +105,7 @@ export interface GenerationSettings {
 export interface AIConceptAnalysis {
   concepts: string[]; // 5 ý tưởng
   suggestedCamera: CameraSettings; // Gợi ý camera dựa trên sản phẩm
+  props?: string[]; // 10 đạo cụ gợi ý chung
 }
 
 export interface AISuggestions {

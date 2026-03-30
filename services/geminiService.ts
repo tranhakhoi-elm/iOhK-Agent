@@ -39,6 +39,7 @@ export const analyzeConceptAndCamera = async (productName: string, dimensions: s
       YÊU CẦU:
       1. Đề xuất 5 Ý tưởng (Concept) phối cảnh chụp ảnh Lifestyle. Các concept cần hướng tới sự rõ ràng (clear), gọn gàng, gần gũi với đời thường (như trong bếp, văn phòng, phòng khách...) và phải ĐÚNG với mục đích sử dụng thực tế của sản phẩm.
       2. Đề xuất bộ thông số Camera (Góc chụp, tiêu cự, khẩu độ, ISO) lý tưởng nhất.
+      3. Đề xuất 10 đạo cụ (props) trang trí chung phù hợp cho các concept này.
 
       Trả về JSON.
     `;
@@ -50,7 +51,7 @@ export const analyzeConceptAndCamera = async (productName: string, dimensions: s
     }
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.1-pro-preview", 
+      model: "gemini-3-flash-preview", 
       contents: { parts },
       config: {
         responseMimeType: "application/json",
@@ -58,6 +59,7 @@ export const analyzeConceptAndCamera = async (productName: string, dimensions: s
           type: Type.OBJECT,
           properties: {
             concepts: { type: Type.ARRAY, items: { type: Type.STRING } },
+            props: { type: Type.ARRAY, items: { type: Type.STRING } },
             suggestedCamera: {
               type: Type.OBJECT,
               properties: {
@@ -70,7 +72,7 @@ export const analyzeConceptAndCamera = async (productName: string, dimensions: s
               required: ["angle", "focalLength", "aperture", "iso", "isMacro"]
             }
           },
-          required: ["concepts", "suggestedCamera"]
+          required: ["concepts", "suggestedCamera", "props"]
         }
       }
     });
@@ -91,7 +93,7 @@ export const analyzeTechConceptAndCamera = async (productName: string, techDesc:
     images.forEach(img => parts.push({ inlineData: { data: img.split(',')[1], mimeType: 'image/png' } }));
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.1-pro-preview",
+      model: "gemini-3-flash-preview",
       contents: { parts },
       config: {
         responseMimeType: "application/json",
@@ -99,6 +101,7 @@ export const analyzeTechConceptAndCamera = async (productName: string, techDesc:
           type: Type.OBJECT,
           properties: {
             concepts: { type: Type.ARRAY, items: { type: Type.STRING } },
+            props: { type: Type.ARRAY, items: { type: Type.STRING } },
             suggestedCamera: {
               type: Type.OBJECT,
               properties: {
@@ -107,31 +110,12 @@ export const analyzeTechConceptAndCamera = async (productName: string, techDesc:
               required: ["angle", "focalLength", "aperture", "iso", "isMacro"]
             }
           },
-          required: ["concepts", "suggestedCamera"]
+          required: ["concepts", "suggestedCamera", "props"]
         }
       }
     });
     return JSON.parse(response.text || "{}") as AIConceptAnalysis;
   } catch (error: any) { throw error; }
-};
-
-// 3. Gợi ý Props cho Concept Lifestyle
-export const suggestPropsForConcept = async (productName: string, concept: string): Promise<string[]> => {
-  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-  try {
-    const response = await ai.models.generateContent({
-      model: "gemini-3-flash-preview",
-      contents: `Sản phẩm: ${productName}. Concept: "${concept}". Liệt kê 10 đạo cụ (props) trang trí phù hợp nhất. JSON array string.`,
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: { props: { type: Type.ARRAY, items: { type: Type.STRING } } }
-        }
-      }
-    });
-    return JSON.parse(response.text || "{}").props || [];
-  } catch (error) { return []; }
 };
 
 // 4. Gợi ý Visual Elements cho Tech USP
@@ -183,7 +167,7 @@ export const analyzeStagingScene = async (concept: string, realSceneImg: string,
       { inlineData: { data: refStyleImg.split(',')[1], mimeType: 'image/png' } }
     ];
     const response = await ai.models.generateContent({
-      model: "gemini-3.1-pro-preview",
+      model: "gemini-3-flash-preview",
       contents: { parts },
       config: {
         responseMimeType: "application/json",
@@ -214,15 +198,16 @@ export const analyzeStudioConcept = async (productName: string, dimensions: stri
          - Sản phẩm và đạo cụ nằm gọn trong khung hình.
          - Chừa khoảng trống trên nền để chèn chữ (Text).
       4. Đề xuất bộ thông số Camera (Góc chụp, tiêu cự, khẩu độ, ISO) lý tưởng nhất cho Studio.
+      5. Đề xuất 10 đạo cụ (props) trang trí chung phù hợp cho các concept này.
 
-      Trả về JSON với 5 concepts và suggestedCamera.
+      Trả về JSON với 5 concepts, props và suggestedCamera.
     `;
 
     const parts: any[] = [{ text: prompt }];
     images.forEach(img => parts.push({ inlineData: { data: img.split(',')[1], mimeType: 'image/png' } }));
 
     const response = await ai.models.generateContent({
-      model: "gemini-3.1-pro-preview", 
+      model: "gemini-3-flash-preview", 
       contents: { parts },
       config: {
         responseMimeType: "application/json",
@@ -230,6 +215,7 @@ export const analyzeStudioConcept = async (productName: string, dimensions: stri
           type: Type.OBJECT,
           properties: {
             concepts: { type: Type.ARRAY, items: { type: Type.STRING } },
+            props: { type: Type.ARRAY, items: { type: Type.STRING } },
             suggestedCamera: {
               type: Type.OBJECT,
               properties: {
@@ -242,7 +228,7 @@ export const analyzeStudioConcept = async (productName: string, dimensions: stri
               required: ["angle", "focalLength", "aperture", "iso", "isMacro"]
             }
           },
-          required: ["concepts", "suggestedCamera"]
+          required: ["concepts", "suggestedCamera", "props"]
         }
       }
     });
@@ -363,9 +349,8 @@ export const generateProductImage = async (settings: GenerationSettings, variant
       - ONLY output the final prompt text, no explanations.
     `;
     const thinkingResponse = await ai.models.generateContent({
-      model: "gemini-3.1-pro-preview",
-      contents: thinkingPrompt,
-      config: { thinkingConfig: { thinkingBudget: 1024 } }
+      model: "gemini-3-flash-preview",
+      contents: thinkingPrompt
     });
     finalPrompt = thinkingResponse.text || "";
   } else if (settings.visualStyle === "COLOR_CHANGE") {
@@ -422,9 +407,8 @@ export const generateProductImage = async (settings: GenerationSettings, variant
     `;
     
     const thinkingResponse = await ai.models.generateContent({
-      model: "gemini-3.1-pro-preview",
-      contents: thinkingPrompt,
-      config: { thinkingConfig: { thinkingBudget: 1024 } }
+      model: "gemini-3-flash-preview",
+      contents: thinkingPrompt
     });
     finalPrompt = thinkingResponse.text || "";
   } else if (settings.visualStyle === "TRACK_SOCKET_STAGING") {
