@@ -240,6 +240,83 @@ export const analyzeStudioConcept = async (productName: string, dimensions: stri
   }
 };
 
+// 8. Tách các mặt hàng để ghép bộ
+export const analyzeBundleItems = async (images: string[]): Promise<{ id: string; name: string; quantity: number }[]> => {
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  try {
+    const prompt = `
+      Hãy phân tích các hình ảnh sản phẩm được đính kèm. 
+      Xác định toàn bộ các sản phẩm riêng lẻ xuất hiện trong hình. 
+      Trả về danh sách các sản phẩm (tên rõ ràng, mô tả ngắn gọn nếu cần thiết để phân biệt) và kèm theo số lượng ước tính dựa vào hình ảnh hoặc cứ mặc định là 1 nếu là sản phẩm đơn lẻ.
+      Đưa ra danh sách dưới dạng mảng các object có 'id', 'name' và 'quantity'. 'id' sinh ngẫu nhiên định dạng chuỗi.
+    `;
+    const parts: any[] = [{ text: prompt }];
+    images.forEach(img => parts.push({ inlineData: { data: img.split(',')[1], mimeType: 'image/png' } }));
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview", 
+      contents: { parts },
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            items: { 
+              type: Type.ARRAY, 
+              items: { 
+                type: Type.OBJECT,
+                properties: {
+                  id: { type: Type.STRING },
+                  name: { type: Type.STRING },
+                  quantity: { type: Type.NUMBER }
+                },
+                required: ["id", "name", "quantity"]
+              } 
+            }
+          },
+          required: ["items"]
+        }
+      }
+    });
+
+    return JSON.parse(response.text || "{}").items || [];
+  } catch (error) { return []; }
+};
+
+// 9. Phân tích bố cục bộ sản phẩm
+export const analyzeBundleComposition = async (items: { name: string; quantity: number }[]): Promise<string> => {
+  const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+  try {
+    const itemList = items.map(i => `- ${i.quantity} x ${i.name}`).join('\n');
+    const prompt = `
+      Tôi cần thiết kế một bố cục không gian 3D (spatial layout) để chụp ảnh hoặc render bộ sản phẩm (Bundle) trên nền trắng sáng studio.
+      Danh sách sản phẩm bao gồm:
+      ${itemList}
+
+      YÊU CẦU QUAN TRỌNG: 
+      - Bố cục theo không gian 3D, isometric, hoặc hơi chếch (elevated front view). Các sản phẩm được sắp xếp có chiều sâu: sản phẩm lớn/cao làm nền phía sau, sản phẩm nhỏ xếp phía trước. Một số có thể treo, dựa hoặc đặt nằm.
+      - Tỷ lệ tương đối (relative scale) giữa các vật thể phải cực kỳ chính xác và logic (ví dụ một chiếc chảo phải lớn hơn nhiều so với một chiếc muỗng).
+      - Mặc dù sắp xếp theo không gian 3D, các vật thể không được che khuất hoàn toàn các chi tiết quan trọng của nhau.
+
+      Nhiệm vụ của bạn:
+      Hãy viết một đoạn mô tả bố cục (layout) chuyên nghiệp bằng Tiếng Việt (khoảng 3-4 câu) mô tả không gian sắp xếp hợp lý và đẹp mắt nhất cho tất cả các sản phẩm này.
+      Mô tả cần chứa các yếu tố:
+      - Phong cách: Sắp xếp theo không gian 3D có chiều sâu, góc nhìn chếch từ trên xuống (isometric/elevated front view), trưng bày sản phẩm sang trọng, gọn gàng.
+      - Ánh sáng: Ánh sáng studio tối giản nguyên bản, hắt sáng mềm mại, đổ bóng chân thật xuống nền.
+      - Quy tắc nghiêm ngặt: Tuyệt đối giữ nguyên tỷ lệ kích thước thực tế giữa các món đồ, không làm sai lệch màu sắc, chất liệu và hình dáng cấu trúc gốc của thiết bị.
+      
+      Chỉ trả về nội dung mô tả bằng Tiếng Việt dùng để làm prompt, KHÔNG giải thích thêm.
+    `;
+
+    const response = await ai.models.generateContent({
+      model: "gemini-3-flash-preview",
+      contents: prompt
+    });
+
+    return response.text?.trim() || "";
+  } catch (error) { return ""; }
+};
+
 export const editProductImage = async (base64Image: string, prompt: string, modelName: string = 'gemini-3.1-flash-image-preview', imageSize: string = '1K'): Promise<string> => {
   const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
   
@@ -463,6 +540,26 @@ export const generateProductImage = async (settings: GenerationSettings, variant
         Thông số máy ảnh: ${formatCameraSettings(settings.camera)}
       `;
     }
+  } else if (settings.visualStyle === "BUNDLE_STAGING") {
+    // strict negative constraints requested by the user
+    finalPrompt = `
+      [ABSOLUTE STRICT SUBJECT PRESERVATION]
+      You are an expert product photographer. Create a curated 3D spatial product staging of a bundle on a pristine, seamless white studio background.
+      
+      LAYOUT & COMPOSITION (Follow these instructions closely):
+      ${settings.bundleComposition || 'A beautifully arranged 3D spatial composition with depth. Isometric or elevated front view. Larger items in the back, smaller in the front. Elegant spacing.'}
+      
+      ITEMS INCLUDED IN THE BUNDLE:
+      ${settings.bundleItems?.map(i => `- ${i.quantity}x ${i.name}`).join('\n      ')}
+      
+      CRITICAL INSTRUCTIONS (MUST STRICLY OBEY TO AVOID HALLUCINATIONS):
+      1. PRESERVE 100% EXACT DETAILS: You MUST NOT change the physical structure, handles, lids, buttons, materials, textures, brand logos, or colors of the input images. DO NOT invent new parts or modify the shape. They must be physically identical clones of the input images.
+      2. PRECISE PROPORTIONS & RELATIVE SCALE: Maintain absolute accurate real-world relative sizes between all objects. For example, a small spoon MUST remain appropriately small compared to a large pan or pot. DO NOT make different items have the same size. Size logic is extremely important!
+      3. ZERO DISTORTION: Geometric shapes and cylindrical objects must be perfect. No melting edges, no distorted handles, no blending of items. Keep products distinctly separated if needed.
+      4. LIGHTING & RENDER: Professional 3D VRay/Octane style soft global illumination, bright minimalist studio, soft ambient occlusion contact shadows to anchor items.
+      5. Output: Hyper-realistic macro commercial product photography.
+      - Camera: ${formatCameraSettings(settings.camera)}.
+    `;
   }
 
   const parts: any[] = [{ text: finalPrompt }];

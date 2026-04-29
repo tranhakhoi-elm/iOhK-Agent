@@ -20,7 +20,7 @@ import {
   Wand2,
   Loader2
 } from 'lucide-react';
-import { AppState, GenerationSettings, GeneratedImage, AspectRatio, ImageSize, AISuggestions, VisualStyle, ColorChangeEntry, CameraSettings, PackagingFaces, PropConfig } from './types';
+import { AppState, GenerationSettings, GeneratedImage, AspectRatio, ImageSize, AISuggestions, VisualStyle, ColorChangeEntry, CameraSettings, PackagingFaces, PropConfig, BundleItem } from './types';
 import { 
   CAMERA_APERTURES, 
   CAMERA_ISO, 
@@ -35,7 +35,9 @@ import {
   suggestTechVisuals,
   suggestTechConcepts,
   analyzeStagingScene,
-  analyzeStudioConcept
+  analyzeStudioConcept,
+  analyzeBundleItems,
+  analyzeBundleComposition
 } from './services/geminiService';
 
 const App: React.FC = () => {
@@ -55,6 +57,7 @@ const App: React.FC = () => {
   const [stagingStep, setStagingStep] = useState<number>(1); 
   const [studioStep, setStudioStep] = useState<number>(1); 
   const [trackSocketStep, setTrackSocketStep] = useState<number>(1); 
+  const [bundleStep, setBundleStep] = useState<number>(1); 
 
   const [suggestions, setSuggestions] = useState<AISuggestions>({
     concepts: [],
@@ -81,6 +84,8 @@ const App: React.FC = () => {
     emptySpacePosition: [],
     sockets: [],
     trackSocketMode: 'CREATIVE',
+    bundleItems: [],
+    bundleComposition: '',
     concept: '',
     location: '',
     camera: { focalLength: 50, aperture: 'f/2.8', iso: '100', isMacro: false, angle: 0 },
@@ -113,6 +118,18 @@ const App: React.FC = () => {
   const trackFileRef = useRef<HTMLInputElement>(null);
   const socketFileRef = useRef<HTMLInputElement>(null);
   const pendingPackagingFace = useRef<keyof PackagingFaces | "flat">("flat");
+
+  const [hasApiKey, setHasApiKey] = useState(false);
+
+  useEffect(() => {
+    const checkApiKey = async () => {
+      // @ts-ignore
+      if (window.aistudio && await window.aistudio.hasSelectedApiKey()) {
+        setHasApiKey(true);
+      }
+    };
+    checkApiKey();
+  }, []);
 
   const handlePasswordChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value;
@@ -295,6 +312,31 @@ const App: React.FC = () => {
       setSettings(prev => ({ ...prev, camera: result.suggestedCamera, concept: result.concepts[0], props: [] }));
       setStudioStep(2);
     } catch (e: any) { console.error(e); } 
+    finally { setAppState(AppState.READY); }
+  };
+
+  // --- LOGIC BUNDLE WORKFLOW ---
+  const handleBundleAnalysis = async () => {
+    if (settings.productImages.length === 0) return alert("Vui lòng tải lên ít nhất 1 ảnh thiết bị.");
+    setAppState(AppState.ANALYZING);
+    setLoadingMessage("AI đang phân tích và nhận diện các thiết bị...");
+    try {
+      const items = await analyzeBundleItems(settings.productImages);
+      setSettings(prev => ({ ...prev, bundleItems: items }));
+      setBundleStep(2);
+    } catch (e: any) { console.error(e); }
+    finally { setAppState(AppState.READY); }
+  };
+
+  const handleBundleComposition = async () => {
+    if (!settings.bundleItems || settings.bundleItems.length === 0) return alert("Danh sách thiết bị trống!");
+    setAppState(AppState.ANALYZING);
+    setLoadingMessage("AI đang lên ý tưởng bố cục cho bộ sản phẩm...");
+    try {
+      const composition = await analyzeBundleComposition(settings.bundleItems);
+      setSettings(prev => ({ ...prev, bundleComposition: composition }));
+      setBundleStep(3);
+    } catch (e: any) { console.error(e); }
     finally { setAppState(AppState.READY); }
   };
 
@@ -1309,6 +1351,113 @@ const renderTrackSocketWorkflow = () => (
 </div>
 );
 
+// 10. Ghép Bộ Sản Phẩm Workflow
+const renderBundleWorkflow = () => (
+  <div className="space-y-6">
+    <StepIndicator current={bundleStep} total={4} labels={['Dữ liệu', 'Danh sách', 'Bố cục', 'Xuất bản']} />
+    
+    <AnimatePresence mode="wait">
+      <motion.div
+        key={bundleStep}
+        initial={{ opacity: 0, x: 20 }}
+        animate={{ opacity: 1, x: 0 }}
+        exit={{ opacity: 0, x: -20 }}
+        transition={{ duration: 0.2 }}
+        className="space-y-6"
+      >
+        {bundleStep === 1 && (
+          <div className="space-y-4">
+            <div>
+              <label className="block text-[9px] font-bold text-slate-400 uppercase mb-2">Ảnh sản phẩm lẻ / Ảnh bộ có sẵn</label>
+              <div className="grid grid-cols-5 gap-2">
+                 {settings.productImages.map((img, i) => (
+                   <div key={i} className="aspect-square bg-white/5 border border-white/10 rounded-lg overflow-hidden relative group">
+                     <img src={img} className="w-full h-full object-cover" referrerPolicy="no-referrer" />
+                     <button onClick={() => setSettings(s => ({...s, productImages: s.productImages.filter((_, idx) => idx !== i)}))} className="absolute inset-0 bg-red-500/80 opacity-0 group-hover:opacity-100 transition-all text-xs flex items-center justify-center font-bold">✕</button>
+                   </div>
+                 ))}
+                 {settings.productImages.length < 5 && (
+                   <button onClick={() => productFilesRef.current?.click()} className="aspect-square border-2 border-dashed border-white/10 rounded-lg text-white flex items-center justify-center hover:border-blue-400 transition-all text-xl">+</button>
+                 )}
+              </div>
+              <input type="file" hidden ref={productFilesRef} accept="image/*" multiple onChange={e => onImageUpload(e, 'product')} />
+              <p className="text-[9px] text-slate-500 mt-2">Tải lên các ảnh chứa các sản phẩm bạn muốn ghép lại với nhau. AI sẽ phân tích và liệt kê.</p>
+            </div>
+
+            <button onClick={handleBundleAnalysis} className="w-full py-4 bg-blue-500 text-white font-bold rounded-xl uppercase text-xs shadow-lg hover:brightness-110 transition-all">Phân tích & Tách sản phẩm</button>
+          </div>
+        )}
+
+        {bundleStep === 2 && (
+          <div className="space-y-4">
+            <label className="block text-[9px] font-bold text-slate-400 uppercase">Danh sách sản phẩm trong Bộ (Edit/Thêm/Sửa)</label>
+            <div className="space-y-2">
+               {settings.bundleItems?.map((item, idx) => (
+                 <div key={item.id} className="flex gap-2 items-center bg-white/5 p-2 rounded-lg border border-white/10">
+                   <div className="flex-1">
+                     <input type="text" value={item.name} onChange={e => {
+                       const newItems = [...(settings.bundleItems || [])];
+                       newItems[idx].name = e.target.value;
+                       setSettings({...settings, bundleItems: newItems});
+                     }} className="w-full bg-transparent text-xs text-white outline-none border-b border-transparent focus:border-blue-400 font-bold" />
+                   </div>
+                   <div className="flex items-center gap-2">
+                     <label className="text-[9px] text-slate-400">SL:</label>
+                     <input type="number" min="1" value={item.quantity} onChange={e => {
+                       const newItems = [...(settings.bundleItems || [])];
+                       newItems[idx].quantity = parseInt(e.target.value) || 1;
+                       setSettings({...settings, bundleItems: newItems});
+                     }} className="w-12 bg-black/20 text-center rounded border border-white/10 p-1 text-xs text-white outline-none" />
+                   </div>
+                   <button onClick={() => setSettings(s => ({...s, bundleItems: s.bundleItems?.filter(i => i.id !== item.id)}))} className="text-red-400 font-bold text-xs p-1 hover:text-red-300">✕</button>
+                 </div>
+               ))}
+            </div>
+
+            <div className="pt-2 border-t border-white/10 flex gap-2">
+              <input type="text" id="newBundleItemName" placeholder="Tên sản phẩm mới..." className="flex-1 bg-white/5 border border-white/10 rounded-xl px-3 text-xs text-white outline-none focus:border-blue-400" />
+              <input type="number" id="newBundleItemQty" defaultValue="1" min="1" className="w-16 bg-white/5 border border-white/10 rounded-xl px-2 text-xs text-center text-white outline-none focus:border-blue-400" />
+              <button onClick={() => {
+                const nameInput = document.getElementById('newBundleItemName') as HTMLInputElement;
+                const qtyInput = document.getElementById('newBundleItemQty') as HTMLInputElement;
+                if(nameInput.value) {
+                  setSettings({...settings, bundleItems: [...(settings.bundleItems || []), { id: Date.now().toString(), name: nameInput.value, quantity: parseInt(qtyInput.value) || 1 }]});
+                  nameInput.value = '';
+                  qtyInput.value = '1';
+                }
+              }} className="px-4 py-2 bg-white/10 rounded-xl text-white text-xs font-bold hover:bg-white/20 transition-all">Thêm</button>
+            </div>
+
+            <div className="flex gap-2 pt-2">
+              <button onClick={() => setBundleStep(1)} className="flex-1 py-4 border border-white/10 text-white rounded-xl uppercase text-[10px] font-bold">Quay lại</button>
+              <button onClick={handleBundleComposition} className="flex-[2] bg-blue-500 text-white font-bold rounded-xl uppercase text-xs">Phân tích bố cục</button>
+            </div>
+          </div>
+        )}
+
+        {bundleStep === 3 && (
+          <div className="space-y-4">
+             <label className="block text-[9px] font-bold text-slate-400 uppercase">Gợi ý bố cục từ AI (Có thể chỉnh sửa)</label>
+             <textarea 
+               className="w-full bg-white/5 border border-white/10 rounded-xl p-4 text-xs text-white leading-relaxed outline-none focus:border-blue-400 custom-scrollbar h-48 resize-none"
+               value={settings.bundleComposition}
+               onChange={e => setSettings({...settings, bundleComposition: e.target.value})}
+             />
+             <p className="text-[9px] text-yellow-400">Lưu ý: Bố cục này sẽ tạo ảnh các sản phẩm trên nền trắng, giữ nguyên tỷ lệ và màu sắc.</p>
+             
+             <div className="flex gap-2">
+              <button onClick={() => setBundleStep(2)} className="flex-1 py-4 border border-white/10 text-white rounded-xl uppercase text-[10px] font-bold">Quay lại</button>
+              <button onClick={() => setBundleStep(4)} className="flex-[2] bg-blue-500 text-white font-bold rounded-xl uppercase text-xs">Tiếp tục</button>
+            </div>
+          </div>
+        )}
+
+        {bundleStep === 4 && renderCameraSettings(() => setBundleStep(3))}
+      </motion.div>
+    </AnimatePresence>
+  </div>
+);
+
   const renderInstructions = () => {
     if (currentStep === 1) {
       return (
@@ -1405,6 +1554,16 @@ const renderTrackSocketWorkflow = () => (
           "Nhấn 'Tạo ảnh' để render."
         ];
         break;
+      case 'BUNDLE_STAGING':
+        title = "Hướng dẫn: Ghép bộ sản phẩm";
+        steps = [
+          "Tải lên hình ảnh của các sản phẩm đơn lẻ hoặc trọn bộ.",
+          "AI sẽ tự động nhận diện và trích xuất danh sách thiết bị.",
+          "Kiểm tra và tùy chỉnh danh sách thiết bị (Thêm bớt số lượng/sản phẩm) nếu cần thiết.",
+          "AI sẽ tự động lên ý tưởng xếp đặt bố cục (Layout) hợp lý.",
+          "Cấu hình size, camera và 'Tạo ảnh'."
+        ];
+        break;
       default:
         title = "Hướng dẫn sử dụng";
         steps = ["Vui lòng làm theo các bước ở thanh công cụ bên trái."];
@@ -1439,6 +1598,7 @@ const renderTrackSocketWorkflow = () => (
         { id: 'TRACK_SOCKET_STAGING', icon: <Plug size={20} />, title: 'Làm ảnh Thanh ray ổ cắm', desc: 'Ghép ổ cắm lên thanh ray và dựng phối cảnh.', color: 'from-blue-500/20 to-blue-500/5', hover: 'hover:border-blue-400' },
         { id: 'SCENE_STAGING', icon: <Home size={20} />, title: 'Xây dựng phối cảnh', desc: 'Dựng phối cảnh từ ảnh thực tế.', color: 'from-indigo-500/20 to-indigo-500/5', hover: 'hover:border-indigo-400' },
         { id: 'TECH_EFFECTS', icon: <Sparkles size={20} />, title: 'Xử lý ảnh có chữ ký', desc: 'Xóa watermark hoặc tạo hiệu ứng biển.', color: 'from-cyan-500/20 to-cyan-500/5', hover: 'hover:border-cyan-400' },
+        { id: 'BUNDLE_STAGING', icon: <Layers size={20} />, title: 'Ghép bộ sản phẩm', desc: 'Ghép các sản phẩm lẻ thành một bộ hoàn chỉnh.', color: 'from-pink-500/20 to-pink-500/5', hover: 'hover:border-pink-400' },
       ];
 
       return (
@@ -1459,7 +1619,7 @@ const renderTrackSocketWorkflow = () => (
                 onClick={() => { 
                   setSettings(s => ({...s, visualStyle: mode.id as VisualStyle})); 
                   // Reset steps for the selected mode
-                  setConceptStep(1); setTechStep(1); setPackagingStep(1); setTechEffectStep(1); setWhiteBgStep(1); setStagingStep(1); setStudioStep(1); setTrackSocketStep(1);
+                  setConceptStep(1); setTechStep(1); setPackagingStep(1); setTechEffectStep(1); setWhiteBgStep(1); setStagingStep(1); setStudioStep(1); setTrackSocketStep(1); setBundleStep(1);
                   setCurrentStep(2); 
                 }} 
                 className={`w-full text-left p-4 rounded-2xl bg-gradient-to-br ${mode.color} border border-white/10 ${mode.hover} transition-all group relative overflow-hidden`}
@@ -1510,6 +1670,7 @@ const renderTrackSocketWorkflow = () => (
                {settings.visualStyle === 'WHITE_BG_RETOUCH' && renderWhiteBgRetouchWorkflow()}
                {settings.visualStyle === 'STUDIO' && renderStudioWorkflow()}
                {settings.visualStyle === 'TRACK_SOCKET_STAGING' && renderTrackSocketWorkflow()}
+               {settings.visualStyle === 'BUNDLE_STAGING' && renderBundleWorkflow()}
              </motion.div>
            </AnimatePresence>
          </div>
@@ -1598,6 +1759,33 @@ const renderTrackSocketWorkflow = () => (
             <input type="password" placeholder="Mật khẩu..." className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 text-center text-white tracking-[0.5em] outline-none" value={passwordInput} onChange={handlePasswordChange} />
             {passwordError && <p className="text-red-400 text-xs font-bold uppercase">{passwordError}</p>}
           </div>
+        </div>
+      </div>
+    );
+  }
+
+  if (!hasApiKey) {
+    return (
+      <div className="fixed inset-0 z-[150] bg-[#051610] flex flex-col items-center justify-center p-6 text-center">
+        <div className="max-w-md w-full space-y-8 glass-card p-10 rounded-[40px] border border-white/10">
+          <div className="w-20 h-20 bg-white/10 rounded-3xl mx-auto flex items-center justify-center"><span className="text-3xl">🔑</span></div>
+          <div className="space-y-2">
+            <h1 className="text-3xl font-bold text-white tracking-tighter">iOhK Agent</h1>
+            <h2 className="text-lg font-bold text-[#caf0f8]">Cấu hình API Key</h2>
+            <p className="text-sm text-slate-400 px-4">Ứng dụng này sử dụng các model tạo ảnh chất lượng cao. Bạn cần cấu hình API Key của riêng mình (thuộc Project đã setup <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noreferrer" className="text-blue-400 underline">Billing</a>) để tiếp tục.</p>
+          </div>
+          <button 
+            onClick={async () => {
+              // @ts-ignore
+              if (window.aistudio) {
+                // @ts-ignore
+                await window.aistudio.openSelectKey();
+                setHasApiKey(true);
+              }
+            }} 
+            className="w-full py-4 bg-blue-500 text-white font-bold rounded-xl uppercase text-xs shadow-lg hover:brightness-110 transition-all">
+            Chọn API Key
+          </button>
         </div>
       </div>
     );
